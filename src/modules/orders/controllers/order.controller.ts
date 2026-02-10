@@ -13,7 +13,6 @@ import { OrderService } from '../services/order.service';
 import { Order } from '../entities/order.entity';
 import { BaseResponseDto } from 'src/common/dto/base-response.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { CreateVehicleDto } from '../dtos/create-vehicle.dto';
 import { AuthenticatedUser } from 'src/modules/auth/decorators/authenticated-user.decorator';
 import { User } from 'src/modules/auth/types/user.type';
 import { Permissions } from 'src/modules/auth/decorators/permissions.decorator';
