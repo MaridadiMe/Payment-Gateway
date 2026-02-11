@@ -36,7 +36,7 @@ export class OrderController extends BaseController<Order> {
 
   @Post()
   @HttpCode(201)
-  @Permissions('')
+  @Permissions()
   async createOrder(
     @Body() payload: CreateOrderDto,
     @AuthenticatedUser() user: User,

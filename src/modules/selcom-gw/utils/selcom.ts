@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 
-import { format } from 'date-fns-tz';
+import { format, toZonedTime } from 'date-fns-tz';
 
 export class SelcomUtils {
   static generateHeaders(payload: Record<string, any>): Record<string, string> {
@@ -62,7 +62,9 @@ export class SelcomUtils {
   }
 
   static generateTimestamp(): string {
-    return format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX", {
+    const utcDate = new Date(); // current UTC time
+    const zonedDate = toZonedTime(utcDate, 'Africa/Dar_es_Salaam'); // shift to EAT
+    return format(zonedDate, "yyyy-MM-dd'T'HH:mm:ssXXX", {
       timeZone: 'Africa/Dar_es_Salaam',
     });
   }

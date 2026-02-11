@@ -51,10 +51,13 @@ export class SelcomClientService {
         ...payload,
       });
     }
+    this.logger.debug(`[36mRequest Headers  = [37m${JSON.stringify(headers)}`);
+
     this.logger.debug(
       `[36mOutgoingRequestUrl = [37m ${method} ${url} [36mPayload = [37m${stringifiedPayload}`,
     );
-    const { data }: any = await firstValueFrom(
+
+    const data: any = await firstValueFrom(
       getClient().pipe(
         catchError((error: AxiosError) => this.handleHttpError(error)),
       ),
@@ -66,9 +69,24 @@ export class SelcomClientService {
     return data;
   }
 
+  // private handleHttpError(error: AxiosError) {
+  //   const apiResponse = error.response;
+  //   this.logger.error(`${error.message} : \n ${JSON.stringify(apiResponse)}`);
+  //   return throwError(
+  //     () => new InternalServerErrorException(`${error.message}`),
+  //   );
+  // }
+
   private handleHttpError(error: AxiosError) {
     const apiResponse = error.response;
-    this.logger.error(`${error.message} : \n ${JSON.stringify(apiResponse)}`);
+
+    this.logger.error(
+      `${error.message} : \n` +
+        `status: ${apiResponse?.status}, ` +
+        `statusText: ${apiResponse?.statusText}, ` +
+        `data: ${JSON.stringify(apiResponse?.data)}`,
+    );
+
     return throwError(
       () => new InternalServerErrorException(`${error.message}`),
     );

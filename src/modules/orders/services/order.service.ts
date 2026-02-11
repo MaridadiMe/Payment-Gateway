@@ -1,15 +1,12 @@
 import {
-  BadRequestException,
   Injectable,
   InternalServerErrorException,
   Logger,
-  NotFoundException,
 } from '@nestjs/common';
 import { BaseService } from 'src/common/services/base.service';
 import { Order } from '../entities/order.entity';
 import { OrderRepository } from '../repositories/order.repository';
 import { User } from 'src/modules/auth/types/user.type';
-import { DataSource, EntityManager } from 'typeorm';
 import { CreateOrderDto } from '../dtos/create-order.dto';
 import { SelcomService } from 'src/modules/selcom-gw/services/selcom.service';
 import { OrderStatus } from '../enums/payments.enum';
