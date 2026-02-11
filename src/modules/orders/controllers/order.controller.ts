@@ -16,6 +16,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedUser } from 'src/modules/auth/decorators/authenticated-user.decorator';
 import { User } from 'src/modules/auth/types/user.type';
 import { Permissions } from 'src/modules/auth/decorators/permissions.decorator';
+import { CreateOrderDto } from '../dtos/create-order.dto';
 
 @ApiBearerAuth()
 @ApiTags('Orders')
@@ -27,9 +28,20 @@ export class OrderController extends BaseController<Order> {
 
   @Get()
   @HttpCode(200)
-  @Permissions('VIEW_VEHICLES')
+  @Permissions('VIEW_ORDERS')
   async findAll(): Promise<BaseResponseDto<Order[]>> {
     const vehicles = await this.service.findAllOrders();
     return new BaseResponseDto(vehicles);
+  }
+
+  @Post()
+  @HttpCode(201)
+  @Permissions('')
+  async createOrder(
+    @Body() payload: CreateOrderDto,
+    @AuthenticatedUser() user: User,
+  ): Promise<BaseResponseDto<Order>> {
+    const order = await this.service.createOrder(payload, user);
+    return new BaseResponseDto(order);
   }
 }

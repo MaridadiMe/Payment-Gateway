@@ -15,6 +15,12 @@ export class Order extends BaseEntity {
   @Column({ unique: true, length: 50 })
   reference: string;
 
+  @Column({ unique: true, length: 50 })
+  clientReference: string;
+
+  @Column({ type: 'varchar', length: 36 })
+  clientId: string;
+
   @Column({ length: 150, nullable: false })
   buyerName: string;
 
@@ -30,6 +36,9 @@ export class Order extends BaseEntity {
   @Column({ length: 3 })
   currency: string; // TZS, USD
 
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+
   @Column({
     type: 'enum',
     enum: OrderStatus,
@@ -42,10 +51,4 @@ export class Order extends BaseEntity {
 
   @OneToMany(() => Payment, (pi) => pi.order)
   payments: Payment[];
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }
