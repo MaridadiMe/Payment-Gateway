@@ -5,8 +5,9 @@ import {
   Logger,
   RequestMethod,
 } from '@nestjs/common';
-import { AxiosError } from 'axios';
+import { AxiosError, AxiosResponse } from 'axios';
 import { catchError, firstValueFrom, throwError } from 'rxjs';
+import { SelcomApiResponseDto } from '../selcom-gw/dtos/selcom-api-response.dto';
 
 @Injectable()
 export class SelcomClientService {
@@ -57,25 +58,17 @@ export class SelcomClientService {
       `[36mOutgoingRequestUrl = [37m ${method} ${url} [36mPayload = [37m${stringifiedPayload}`,
     );
 
-    const data: any = await firstValueFrom(
+    const resp: AxiosResponse<SelcomApiResponseDto> = await firstValueFrom(
       getClient().pipe(
         catchError((error: AxiosError) => this.handleHttpError(error)),
       ),
     );
-    this.logger.debug(`[36mResponse = [37m${JSON.stringify(data)}`);
+    this.logger.debug(`[36mResponse = [37m${JSON.stringify(resp?.data)}`);
     this.logger.debug(
       `finished executing request [36mResponseTime = [37m${Date.now() - now}ms`,
     );
-    return data;
+    return resp?.data;
   }
-
-  // private handleHttpError(error: AxiosError) {
-  //   const apiResponse = error.response;
-  //   this.logger.error(`${error.message} : \n ${JSON.stringify(apiResponse)}`);
-  //   return throwError(
-  //     () => new InternalServerErrorException(`${error.message}`),
-  //   );
-  // }
 
   private handleHttpError(error: AxiosError) {
     const apiResponse = error.response;

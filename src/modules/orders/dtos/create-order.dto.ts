@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsString } from 'class-validator';
 
 export class CreateOrderDto {
   @ApiProperty()
@@ -35,4 +35,8 @@ export class CreateOrderDto {
   @ApiPropertyOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  pullFromWalllet?: boolean = false;
 }

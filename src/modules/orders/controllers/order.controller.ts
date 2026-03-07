@@ -17,6 +17,7 @@ import { AuthenticatedUser } from 'src/modules/auth/decorators/authenticated-use
 import { User } from 'src/modules/auth/types/user.type';
 import { Permissions } from 'src/modules/auth/decorators/permissions.decorator';
 import { CreateOrderDto } from '../dtos/create-order.dto';
+import { PublicRoute } from 'src/modules/auth/decorators/public-route.decorator';
 
 @ApiBearerAuth()
 @ApiTags('Orders')
