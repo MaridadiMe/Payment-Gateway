@@ -26,7 +26,7 @@ export class SnippeService {
     const dto: MobilePaymentIntent = {
       payment_type: 'mobile',
       details: {
-        amount: 500,
+        amount: Number(order.totalAmount),
         currency: order.currency,
       },
       phone_number: order.buyerPhone,
