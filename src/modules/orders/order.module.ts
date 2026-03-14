@@ -5,9 +5,10 @@ import { OrderService } from './services/order.service';
 import { SelcomGwModule } from '../selcom-gw/selcom-gw.module';
 import { PaymentIntentRepository } from './repositories/payment-intent.repository';
 import { PaymentRepository } from './repositories/payment.repository';
+import { SnippeModule } from '../snippe-gw/snippe.module';
 
 @Module({
-  imports: [SelcomGwModule],
+  imports: [SelcomGwModule, SnippeModule],
   providers: [
     OrderRepository,
     OrderService,

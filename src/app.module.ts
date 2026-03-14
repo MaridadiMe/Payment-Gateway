@@ -9,6 +9,7 @@ import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
 import { OrderModule } from './modules/orders/order.module';
 import { SelcomGwModule } from './modules/selcom-gw/selcom-gw.module';
 import { SnippeModule } from './modules/snippe-gw/snippe.module';
+import { WebhookModule } from './modules/webhook/webhook.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -24,6 +25,7 @@ import { SnippeModule } from './modules/snippe-gw/snippe.module';
     OrderModule,
     SelcomGwModule,
     SnippeModule,
+    WebhookModule,
   ],
   providers: [
     {

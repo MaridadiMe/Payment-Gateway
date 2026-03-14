@@ -27,6 +27,9 @@ import { WalletPullPaymentDto } from '../wallet-pull-payment.dto';
 import { PaymentIntentRepository } from '../repositories/payment-intent.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { ConfigService } from '@nestjs/config';
+import { PaymentGateway } from '../enums/gateway.enum';
+import { SnippeService } from 'src/modules/snippe-gw/services/snippe.service';
+import { PaymentIntentRequestResponseDto } from 'src/modules/selcom-gw/dtos/payment-intent-request-response.dto';
 
 @Injectable()
 export class OrderService extends BaseService<Order> {
@@ -34,8 +37,8 @@ export class OrderService extends BaseService<Order> {
   constructor(
     protected readonly orderRepository: OrderRepository,
     private readonly paymentIntentRepository: PaymentIntentRepository,
-    private readonly paymentRepository: PaymentRepository,
     private readonly selcomService: SelcomService,
+    private readonly snippeService: SnippeService,
     private readonly configService: ConfigService,
   ) {
     super(orderRepository);
@@ -71,10 +74,7 @@ export class OrderService extends BaseService<Order> {
     return existingOrder;
   }
 
-  private async handleNewOrder(
-    payload: CreateOrderDto,
-    user: User,
-  ): Promise<Order> {
+  private async handleNewOrder(payload: CreateOrderDto, user: User) {
     try {
       const newOrder = this.orderRepository.create({
         ...payload,
@@ -85,57 +85,116 @@ export class OrderService extends BaseService<Order> {
       });
 
       const savedOrder = await this.orderRepository.save(newOrder);
+      const gateWay = this.getBestGateway();
 
-      const { selcomReq, selcomResponse } = await this.createSelcomMinimalOrder(
-        savedOrder,
-        user,
-      );
+      const upstreamIntent: PaymentIntentRequestResponseDto =
+        await this.handleUpstreamPaymentIntent(savedOrder, gateWay);
 
       //save payment Intent
       const intent = this.paymentIntentRepository.create({
         order: savedOrder,
         provider: PaymentProvider.SELCOM,
-        providerOrderRef: selcomReq.order_id,
+        providerOrderRef: savedOrder.reference, // this should ideally come from the upstream gateway response
         status: PaymentIntentStatus.CREATED,
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000), // expires in 60 mins
-        providerRequest: selcomReq,
-        providerResponse: selcomResponse,
+        expiresAt: upstreamIntent.expiry,
+        providerRequest: upstreamIntent.request,
+        providerResponse: upstreamIntent.response,
         createdBy: user.userName,
       });
 
-      const savedIntent = await this.paymentIntentRepository.save(intent);
-
-      if (
-        selcomResponse.result == SelcomResult.SUCCESS &&
-        payload.pullFromWalllet
-      ) {
-        // Pull From Wallet
-        const payload: WalletPullPaymentDto = {
-          transid: intent.id,
-          order_id: savedOrder.reference,
-          msisdn: savedOrder.buyerPhone,
-        };
-
-        const pullResponse =
-          await this.selcomService.walletPullPayment(payload);
-      }
+      await this.paymentIntentRepository.save(intent);
 
       return savedOrder;
     } catch (error) {
       this.logger.error(
         `Error handling new order: ${error.message}`,
-        error.stack,
+        error.message,
       );
       throw new InternalServerErrorException(
-        'An error occurred while processing the order',
+        'An error occurred while processing the order, try again later',
       );
     }
   }
 
-  private async createSelcomMinimalOrder(
-    savedOrder: Order,
-    user: User,
-  ): Promise<any> {
+  private getBestGateway(): PaymentGateway {
+    // For simplicity, we are returning Snippe as the best gateway. In a real-world scenario, you would implement logic to determine the best gateway based on factors like cost, reliability, and user preferences.
+    return PaymentGateway.SNIPPE;
+  }
+
+  private async handleUpstreamPaymentIntent(
+    order: Order,
+    gateway: PaymentGateway,
+  ): Promise<PaymentIntentRequestResponseDto> {
+    // This probably needs to be a factory method that returns the appropriate service based on the gateway
+    if (gateway === PaymentGateway.SNIPPE) {
+      return this.snippeService.createPaymentIntent(order);
+    } else {
+      return this.createSelcomMinimalOrder(order);
+    }
+  }
+
+  // private async handleNewOrder(
+  //   payload: CreateOrderDto,
+  //   user: User,
+  // ): Promise<Order> {
+  //   try {
+  //     const newOrder = this.orderRepository.create({
+  //       ...payload,
+  //       reference: format(new Date(), 'yyyyMMddHHmmssSSS'),
+  //       createdBy: user.userName,
+  //       clientId: user.id,
+  //       status: OrderStatus.OPEN,
+  //     });
+
+  //     const savedOrder = await this.orderRepository.save(newOrder);
+
+  //     const { selcomReq, selcomResponse } = await this.createSelcomMinimalOrder(
+  //       savedOrder,
+  //       user,
+  //     );
+
+  //     //save payment Intent
+  //     const intent = this.paymentIntentRepository.create({
+  //       order: savedOrder,
+  //       provider: PaymentProvider.SELCOM,
+  //       providerOrderRef: selcomReq.order_id,
+  //       status: PaymentIntentStatus.CREATED,
+  //       expiresAt: new Date(Date.now() + 60 * 60 * 1000), // expires in 60 mins
+  //       providerRequest: selcomReq,
+  //       providerResponse: selcomResponse,
+  //       createdBy: user.userName,
+  //     });
+
+  //     const savedIntent = await this.paymentIntentRepository.save(intent);
+
+  //     if (
+  //       selcomResponse.result == SelcomResult.SUCCESS &&
+  //       payload.pullFromWalllet
+  //     ) {
+  //       // Pull From Wallet
+  //       const payload: WalletPullPaymentDto = {
+  //         transid: intent.id,
+  //         order_id: savedOrder.reference,
+  //         msisdn: savedOrder.buyerPhone,
+  //       };
+
+  //       const pullResponse =
+  //         await this.selcomService.walletPullPayment(payload);
+  //     }
+
+  //     return savedOrder;
+  //   } catch (error) {
+  //     this.logger.error(
+  //       `Error handling new order: ${error.message}`,
+  //       error.stack,
+  //     );
+  //     throw new InternalServerErrorException(
+  //       'An error occurred while processing the order',
+  //     );
+  //   }
+  // }
+
+  private async createSelcomMinimalOrder(savedOrder: Order): Promise<any> {
     try {
       const selcomMinimalOrderDto: CreateMinimalOrderDto = {
         vendor: VENDOR_TILL,

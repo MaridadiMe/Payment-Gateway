@@ -42,4 +42,9 @@ export class SelcomService {
       headers,
     }) as Promise<SelcomApiResponseDto>;
   }
+
+  async handleWebhook(payload: any, headers: any): Promise<any> {
+    // Add Logic Later
+    return {};
+  }
 }
