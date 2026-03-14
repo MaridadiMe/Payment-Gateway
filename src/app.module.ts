@@ -8,6 +8,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth-guard';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
 import { OrderModule } from './modules/orders/order.module';
 import { SelcomGwModule } from './modules/selcom-gw/selcom-gw.module';
+import { SnippeModule } from './modules/snippe-gw/snippe.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,6 +23,7 @@ import { SelcomGwModule } from './modules/selcom-gw/selcom-gw.module';
     AuthModule,
     OrderModule,
     SelcomGwModule,
+    SnippeModule,
   ],
   providers: [
     {
