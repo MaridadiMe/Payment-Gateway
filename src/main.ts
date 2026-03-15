@@ -7,11 +7,15 @@ import * as dotenv from 'dotenv';
 import { setupSwagger } from './core/config/swagger.config';
 import { DataSource } from 'typeorm';
 import { seedDatabase } from './core/database/database.seeder';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 dotenv.config();
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
+
   app.setGlobalPrefix(process.env.API_BASE_URL ?? 'api/v1/app');
   const APP_PORT = process.env.APP_PORT;
 

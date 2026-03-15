@@ -4,7 +4,9 @@ import { MobilePaymentIntent } from '../dtos/mobile-payment-intent.dto';
 import { SnippeRepository } from '../repositories/snippe.repository';
 import { PaymentIntentRequestResponseDto } from 'src/modules/selcom-gw/dtos/payment-intent-request-response.dto';
 import { Order } from 'src/modules/orders/entities/order.entity';
-import { first } from 'rxjs';
+import { SnippeWebhookDto } from '../dtos/snippe-webhook.dto';
+
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 @Injectable()
 export class SnippeService {
@@ -42,14 +44,56 @@ export class SnippeService {
     };
 
     const response = await this.snippeRepository.createMobilePaymentIntent(dto);
-    const expiry = new Date(Date.now() + 60 * 60 * 24 * 4 * 1000);
+    const expiry = new Date(Date.now() + 60 * 60 * 4 * 1000);
 
     return { request: dto, response, expiry };
   }
 
-  async handleWebhook(payload: any, headers: any): Promise<any> {
-    // Add Logic Later
-    this.logger.log('Received Snippe Webhook', { payload, headers });
-    return {};
+  async handleWebhook(
+    rawBody: Buffer,
+    payload: SnippeWebhookDto,
+    headers: any,
+  ): Promise<any> {
+    try {
+      this.logger.log('Received Snippe Webhook', { payload, headers });
+      const isValid = this.verifyWebhookSignature(rawBody, headers);
+      if (!isValid) {
+        this.logger.warn('Invalid Snippe webhook signature, ignoring payload');
+      }
+
+      // TODO: Implement actual webhook handling logic here, such as updating order/payment status based on the payload
+    } catch (error) {
+      this.logger.error('Error handling Snippe webhook', error);
+    } finally {
+      return;
+    }
+  }
+
+  private verifyWebhookSignature(
+    rawBody: Buffer,
+    headers: Record<string, string>,
+  ): boolean {
+    const secret = this.configService.get('SNIPPE_API_SECRET');
+    const signature = headers['x-webhook-signature'];
+    const timestamp = headers['x-webhook-timestamp'];
+
+    const message = `${timestamp}.${rawBody}`;
+
+    const expectedSignature = createHmac('sha256', secret)
+      .update(message)
+      .digest('hex');
+
+    this.logger.debug(
+      `Computed HMAC: ${expectedSignature}, Received Signature: ${signature}`,
+    );
+
+    const sigBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+    if (sigBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(sigBuffer, expectedBuffer);
   }
 }

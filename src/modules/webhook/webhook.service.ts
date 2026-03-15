@@ -12,10 +12,15 @@ export class WebhookService {
     private readonly snippeService: SnippeService,
   ) {}
 
-  async handleWebhook(provider: string, payload: any, headers: any) {
+  async handleWebhook(
+    provider: string,
+    rawBody: Buffer,
+    payload: any,
+    headers: any,
+  ) {
     if (provider.toUpperCase() === PaymentGateway.SNIPPE) {
       this.logger.debug('Received Snippe webhook payload:');
-      return this.snippeService.handleWebhook(payload, headers);
+      return this.snippeService.handleWebhook(rawBody, payload, headers);
     } else if (provider.toUpperCase() === PaymentGateway.SELCOM) {
       this.logger.debug('Received Selcom webhook payload:');
       return this.selcomService.handleWebhook(payload, headers);

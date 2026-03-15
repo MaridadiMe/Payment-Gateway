@@ -1,4 +1,12 @@
-import { Body, Controller, Headers, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  Param,
+  Post,
+  RawBodyRequest,
+  Req,
+} from '@nestjs/common';
 import { PublicRoute } from '../auth/decorators/public-route.decorator';
 import { WebhookService } from './webhook.service';
 
@@ -9,9 +17,17 @@ export class WebhookController {
   @Post(':id')
   async handleWebhook(
     @Param('id') provider: string,
-    @Body() payload: any,
+
+    @Req() req: RawBodyRequest<Request>,
     @Headers() headers: Record<string, string>,
   ) {
-    return await this.webhookService.handleWebhook(provider, payload, headers);
+    const payload = req.body;
+    const rawBody = req.rawBody;
+    return await this.webhookService.handleWebhook(
+      provider,
+      rawBody,
+      payload,
+      headers,
+    );
   }
 }
