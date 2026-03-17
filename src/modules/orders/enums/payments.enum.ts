@@ -1,13 +1,15 @@
 export enum OrderStatus {
   OPEN = 'OPEN',
   PAID = 'PAID',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
   CANCELLED = 'CANCELLED',
+  EXPIRED = 'EXPIRED',
 }
 
 export enum PaymentProvider {
   SELCOM = 'SELCOM',
   MPESA = 'MPESA',
-  AIRTEL = 'AIRTEL',
+  SNIPPE = 'SNIPPE',
 }
 
 export enum PaymentIntentStatus {

@@ -10,6 +10,7 @@ import { OrderModule } from './modules/orders/order.module';
 import { SelcomGwModule } from './modules/selcom-gw/selcom-gw.module';
 import { SnippeModule } from './modules/snippe-gw/snippe.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -21,6 +22,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
       useFactory: (configSevice: ConfigService) =>
         databaseConnectionOptions(configSevice),
     }),
+    EventEmitterModule.forRoot(),
     AuthModule,
     OrderModule,
     SelcomGwModule,

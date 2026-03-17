@@ -7,6 +7,9 @@ import { Order } from 'src/modules/orders/entities/order.entity';
 import { SnippeWebhookDto } from '../dtos/snippe-webhook.dto';
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { SnippeWebhookType } from '../enums/snippe-webhook-type';
+import { PaymentEvent } from 'src/modules/orders/enums/paymentEvent.enum';
 
 @Injectable()
 export class SnippeService {
@@ -15,6 +18,7 @@ export class SnippeService {
   constructor(
     private readonly snippeRepository: SnippeRepository,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async createPaymentIntent(
@@ -59,9 +63,24 @@ export class SnippeService {
       const isValid = this.verifyWebhookSignature(rawBody, headers);
       if (!isValid) {
         this.logger.warn('Invalid Snippe webhook signature, ignoring payload');
+        return;
       }
 
-      // TODO: Implement actual webhook handling logic here, such as updating order/payment status based on the payload
+      if (payload.type === SnippeWebhookType.COMPLETED) {
+        this.logger.debug(
+          'Emitting snippe.webhook event for completed payment',
+        );
+        this.eventEmitter.emit(PaymentEvent.SNIPPE_PAYMENT_COMPLETED, payload);
+      } else if (payload.type === SnippeWebhookType.CANCELLED) {
+        this.logger.debug(
+          'Emitting snippe.webhook event for cancelled payment',
+        );
+        this.eventEmitter.emit(PaymentEvent.SNIPPE_PAYMENT_COMPLETED, payload);
+      } else {
+        return;
+      }
+
+      return;
     } catch (error) {
       this.logger.error('Error handling Snippe webhook', error);
     } finally {

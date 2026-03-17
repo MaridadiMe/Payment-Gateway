@@ -13,6 +13,7 @@ import {
   OrderStatus,
   PaymentIntentStatus,
   PaymentProvider,
+  PaymentStatus,
 } from '../enums/payments.enum';
 import { CreateMinimalOrderDto } from 'src/modules/selcom-gw/dtos/create-minimal-order.dto';
 import { format } from 'date-fns';
@@ -22,14 +23,18 @@ import {
 } from 'src/modules/selcom-gw/constants/selcom.constants';
 import Decimal from 'decimal.js';
 import { SelcomUtils } from 'src/modules/selcom-gw/utils/selcom';
-import { SelcomResult } from 'src/modules/selcom-gw/dtos/selcom-api-response.dto';
-import { WalletPullPaymentDto } from '../wallet-pull-payment.dto';
 import { PaymentIntentRepository } from '../repositories/payment-intent.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { ConfigService } from '@nestjs/config';
 import { PaymentGateway } from '../enums/gateway.enum';
 import { SnippeService } from 'src/modules/snippe-gw/services/snippe.service';
 import { PaymentIntentRequestResponseDto } from 'src/modules/selcom-gw/dtos/payment-intent-request-response.dto';
+import { OnEvent } from '@nestjs/event-emitter';
+import { PaymentEvent } from '../enums/paymentEvent.enum';
+import { SnippeWebhookDto } from 'src/modules/snippe-gw/dtos/snippe-webhook.dto';
+import { DataSource } from 'typeorm';
+import { Payment } from '../entities/payment.entity';
+import { PaymentIntent } from '../entities/payment-intent.entity';
 
 @Injectable()
 export class OrderService extends BaseService<Order> {
@@ -37,9 +42,11 @@ export class OrderService extends BaseService<Order> {
   constructor(
     protected readonly orderRepository: OrderRepository,
     private readonly paymentIntentRepository: PaymentIntentRepository,
+    private readonly paymentRepository: PaymentRepository,
     private readonly selcomService: SelcomService,
     private readonly snippeService: SnippeService,
     private readonly configService: ConfigService,
+    private readonly dataSource: DataSource,
   ) {
     super(orderRepository);
   }
@@ -93,8 +100,8 @@ export class OrderService extends BaseService<Order> {
       //save payment Intent
       const intent = this.paymentIntentRepository.create({
         order: savedOrder,
-        provider: PaymentProvider.SELCOM,
-        providerOrderRef: savedOrder.reference, // this should ideally come from the upstream gateway response
+        provider: PaymentProvider[gateWay],
+        providerOrderRef: savedOrder.reference,
         status: PaymentIntentStatus.CREATED,
         expiresAt: upstreamIntent.expiry,
         providerRequest: upstreamIntent.request,
@@ -133,67 +140,6 @@ export class OrderService extends BaseService<Order> {
     }
   }
 
-  // private async handleNewOrder(
-  //   payload: CreateOrderDto,
-  //   user: User,
-  // ): Promise<Order> {
-  //   try {
-  //     const newOrder = this.orderRepository.create({
-  //       ...payload,
-  //       reference: format(new Date(), 'yyyyMMddHHmmssSSS'),
-  //       createdBy: user.userName,
-  //       clientId: user.id,
-  //       status: OrderStatus.OPEN,
-  //     });
-
-  //     const savedOrder = await this.orderRepository.save(newOrder);
-
-  //     const { selcomReq, selcomResponse } = await this.createSelcomMinimalOrder(
-  //       savedOrder,
-  //       user,
-  //     );
-
-  //     //save payment Intent
-  //     const intent = this.paymentIntentRepository.create({
-  //       order: savedOrder,
-  //       provider: PaymentProvider.SELCOM,
-  //       providerOrderRef: selcomReq.order_id,
-  //       status: PaymentIntentStatus.CREATED,
-  //       expiresAt: new Date(Date.now() + 60 * 60 * 1000), // expires in 60 mins
-  //       providerRequest: selcomReq,
-  //       providerResponse: selcomResponse,
-  //       createdBy: user.userName,
-  //     });
-
-  //     const savedIntent = await this.paymentIntentRepository.save(intent);
-
-  //     if (
-  //       selcomResponse.result == SelcomResult.SUCCESS &&
-  //       payload.pullFromWalllet
-  //     ) {
-  //       // Pull From Wallet
-  //       const payload: WalletPullPaymentDto = {
-  //         transid: intent.id,
-  //         order_id: savedOrder.reference,
-  //         msisdn: savedOrder.buyerPhone,
-  //       };
-
-  //       const pullResponse =
-  //         await this.selcomService.walletPullPayment(payload);
-  //     }
-
-  //     return savedOrder;
-  //   } catch (error) {
-  //     this.logger.error(
-  //       `Error handling new order: ${error.message}`,
-  //       error.stack,
-  //     );
-  //     throw new InternalServerErrorException(
-  //       'An error occurred while processing the order',
-  //     );
-  //   }
-  // }
-
   private async createSelcomMinimalOrder(savedOrder: Order): Promise<any> {
     try {
       const selcomMinimalOrderDto: CreateMinimalOrderDto = {
@@ -226,5 +172,79 @@ export class OrderService extends BaseService<Order> {
         'An error occurred while creating the order with Selcom',
       );
     }
+  }
+
+  @OnEvent(PaymentEvent.SNIPPE_PAYMENT_COMPLETED)
+  async handleSnippePaymentCompleted(payload: SnippeWebhookDto) {
+    await this.dataSource
+      .transaction(async (manager) => {
+        const orderRepo = manager.getRepository(Order);
+        const paymentRepo = manager.getRepository(Payment);
+        const paymentIntentRepo = manager.getRepository(PaymentIntent);
+
+        const order = await orderRepo.findOne({
+          where: { reference: payload.data.metadata.order_id },
+        });
+
+        if (!order) return;
+
+        if (new Decimal(order.totalAmount).equals(payload.data.amount.value)) {
+          order.status = OrderStatus.PAID;
+          this.logger.debug(
+            `Order ${order.reference} is fully paid. Received amount: ${payload.data.amount.value}, Order total: ${order.totalAmount}`,
+          );
+        } else if (
+          new Decimal(order.totalAmount).greaterThan(payload.data.amount.value)
+        ) {
+          order.status = OrderStatus.PARTIALLY_PAID;
+          this.logger.debug(
+            `Order ${order.reference} is partially paid. Received amount: ${payload.data.amount.value}, Order total: ${order.totalAmount}`,
+          );
+        } else {
+          order.status = OrderStatus.PAID;
+          this.logger.debug(
+            `Order ${order.reference} is Over paid. Received amount: ${payload.data.amount.value}, Order total: ${order.totalAmount}`,
+          );
+          return;
+        }
+
+        const paymentIntent = await paymentIntentRepo.findOne({
+          where: {
+            order: { id: order.id },
+            provider: PaymentProvider.SNIPPE,
+            status: PaymentIntentStatus.CREATED,
+          },
+        });
+
+        if (!paymentIntent) {
+          this.logger.warn(
+            `No payment intent found for order ${order.reference} and provider ${PaymentProvider.SNIPPE}`,
+          );
+          return;
+        }
+
+        const payment = paymentRepo.create({
+          order,
+          paymentIntent,
+          providerTransactionId: payload.data.reference,
+          paidAt: new Date(payload.data.completed_at),
+          status: PaymentStatus.SUCCESS,
+          providerPayload: payload,
+        });
+
+        await paymentRepo.save(payment);
+
+        // (Optional but IMPORTANT) update payment intent status
+        paymentIntent.status = PaymentIntentStatus.PAID;
+
+        await orderRepo.save(order);
+        await paymentIntentRepo.save(paymentIntent);
+      })
+      .catch((error) => {
+        this.logger.error(
+          `Error handling Snippe payment completed event: ${error.message}`,
+          error.stack,
+        );
+      });
   }
 }
