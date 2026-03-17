@@ -183,7 +183,11 @@ export class OrderService extends BaseService<Order> {
         const paymentIntentRepo = manager.getRepository(PaymentIntent);
 
         const order = await orderRepo.findOne({
-          where: { reference: payload.data.metadata.order_id },
+          where: {
+            reference: payload.data.metadata.order_id,
+            status: OrderStatus.OPEN,
+          },
+          lock: { mode: 'pessimistic_write' },
         });
 
         if (!order) return;
@@ -219,6 +223,20 @@ export class OrderService extends BaseService<Order> {
         if (!paymentIntent) {
           this.logger.warn(
             `No payment intent found for order ${order.reference} and provider ${PaymentProvider.SNIPPE}`,
+          );
+          return;
+        }
+
+        // check if payment already exists
+        const exists = await paymentRepo.findOne({
+          where: {
+            providerTransactionId: payload.data.reference,
+          },
+        });
+
+        if (exists) {
+          this.logger.warn(
+            `Payment with provider transaction id ${payload.data.reference} already exists, skipping creation`,
           );
           return;
         }
