@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { BaseController } from 'src/common/controllers/base.controller';
 import { OrderService } from '../services/order.service';
 import { Order } from '../entities/order.entity';
@@ -17,7 +8,6 @@ import { AuthenticatedUser } from 'src/modules/auth/decorators/authenticated-use
 import { User } from 'src/modules/auth/types/user.type';
 import { Permissions } from 'src/modules/auth/decorators/permissions.decorator';
 import { CreateOrderDto } from '../dtos/create-order.dto';
-import { PublicRoute } from 'src/modules/auth/decorators/public-route.decorator';
 
 @ApiBearerAuth()
 @ApiTags('Orders')
@@ -29,7 +19,8 @@ export class OrderController extends BaseController<Order> {
 
   @Get()
   @HttpCode(200)
-  @Permissions('VIEW_ORDERS')
+  // @Permissions('VIEW_ORDERS') Temporaryly allowing all authenticated users to view orders until we implement more granular permissions
+  @Permissions()
   async findAll(): Promise<BaseResponseDto<Order[]>> {
     const vehicles = await this.service.findAllOrders();
     return new BaseResponseDto(vehicles);

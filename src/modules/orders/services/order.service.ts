@@ -62,7 +62,7 @@ export class OrderService extends BaseService<Order> {
       });
 
       if (existingOrder) {
-        return this.handleExistingOrder(existingOrder, payload);
+        return this.handleExistingOrder(existingOrder, payload, user);
       }
 
       return this.handleNewOrder(payload, user);
@@ -74,10 +74,55 @@ export class OrderService extends BaseService<Order> {
     }
   }
 
-  private handleExistingOrder(
+  private async handleExistingOrder(
     existingOrder: Order,
     dto: CreateOrderDto,
-  ): Order {
+    user: User,
+  ): Promise<Order> {
+    // if order has already been paid, just return the existing order without making any changes
+    if (existingOrder.status === OrderStatus.PAID) {
+      return existingOrder;
+    }
+
+    // if is open, check if there is an intent that is not expired, if there is, what should we do?
+    if (existingOrder.status === OrderStatus.OPEN) {
+      // check if there is an intent that is not expired
+      const existingIntent = await this.paymentIntentRepository.findOne({
+        where: {
+          order: { id: existingOrder.id },
+          status: PaymentIntentStatus.CREATED,
+        },
+      });
+
+      if (existingIntent) {
+        // Close that intent
+        existingIntent.status = PaymentIntentStatus.EXPIRED;
+      }
+
+      const gateWay = this.getBestGateway();
+
+      const upstreamIntent: PaymentIntentRequestResponseDto =
+        await this.handleUpstreamPaymentIntent(existingOrder, gateWay);
+
+      //save new payment Intent
+      const intent = this.paymentIntentRepository.create({
+        order: existingOrder,
+        provider: PaymentProvider[gateWay],
+        providerOrderRef: existingOrder.reference,
+        status: PaymentIntentStatus.CREATED,
+        expiresAt: upstreamIntent.expiry,
+        providerRequest: upstreamIntent.request,
+        providerResponse: upstreamIntent.response,
+        createdBy: user.userName,
+      });
+
+      await this.paymentIntentRepository.save(intent);
+
+      return existingOrder;
+    }
+
+    // if the intent is expired, create a new intent and the cycle continues as normal
+
     return existingOrder;
   }
 
