@@ -11,6 +11,7 @@ import { SelcomGwModule } from './modules/selcom-gw/selcom-gw.module';
 import { SnippeModule } from './modules/snippe-gw/snippe.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { RabbitMqModule } from './modules/rabbitMq/rabbitMq.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,6 +24,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
         databaseConnectionOptions(configSevice),
     }),
     EventEmitterModule.forRoot(),
+    RabbitMqModule,
     AuthModule,
     OrderModule,
     SelcomGwModule,

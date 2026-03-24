@@ -8,6 +8,8 @@ import { setupSwagger } from './core/config/swagger.config';
 import { DataSource } from 'typeorm';
 import { seedDatabase } from './core/database/database.seeder';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { MicroserviceOptions } from '@nestjs/microservices';
+import { rabbitMqConfig } from './core/config/rabbitmq.config';
 
 dotenv.config();
 
@@ -15,6 +17,8 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+
+  await app.init();
 
   app.setGlobalPrefix(process.env.API_BASE_URL ?? 'api/v1/app');
   const APP_PORT = process.env.APP_PORT;
@@ -27,7 +31,19 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
-  setupSwagger(app);
+
+  if (process.env.SHOW_SWAGGER === 'true') {
+    setupSwagger(app);
+  }
+
+  if (process.env.USE_RABBITMQ === 'true') {
+    try {
+      app.connectMicroservice<MicroserviceOptions>(rabbitMqConfig());
+      await app.startAllMicroservices();
+    } catch (error) {
+      Logger.warn(`RabbitMQ Server is offline...: ${error}`);
+    }
+  }
 
   await app.listen(APP_PORT);
   Logger.log(`APP PORT : ${APP_PORT}`, 'Bootstrap');
