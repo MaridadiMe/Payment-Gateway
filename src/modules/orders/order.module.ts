@@ -6,9 +6,10 @@ import { SelcomGwModule } from '../selcom-gw/selcom-gw.module';
 import { PaymentIntentRepository } from './repositories/payment-intent.repository';
 import { PaymentRepository } from './repositories/payment.repository';
 import { SnippeModule } from '../snippe-gw/snippe.module';
+import { RabbitMqModule } from '../rabbitMq/rabbitMq.module';
 
 @Module({
-  imports: [SelcomGwModule, SnippeModule],
+  imports: [SelcomGwModule, SnippeModule, RabbitMqModule],
   providers: [
     OrderRepository,
     OrderService,
