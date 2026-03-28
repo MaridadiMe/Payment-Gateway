@@ -18,7 +18,7 @@ async function bootstrap() {
     rawBody: true,
   });
 
-  await app.init();
+  //await app.init();
 
   app.setGlobalPrefix(process.env.API_BASE_URL ?? 'api/v1/app');
   const APP_PORT = process.env.APP_PORT;
