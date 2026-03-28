@@ -35,6 +35,7 @@ import { SnippeWebhookDto } from 'src/modules/snippe-gw/dtos/snippe-webhook.dto'
 import { DataSource } from 'typeorm';
 import { Payment } from '../entities/payment.entity';
 import { PaymentIntent } from '../entities/payment-intent.entity';
+import { RabbitMQPublisher } from 'src/modules/rabbitMq/rabbitMq.publisher';
 
 @Injectable()
 export class OrderService extends BaseService<Order> {
@@ -47,6 +48,7 @@ export class OrderService extends BaseService<Order> {
     private readonly snippeService: SnippeService,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
+    private readonly rabbitMQPublisher: RabbitMQPublisher,
   ) {
     super(orderRepository);
   }
@@ -302,6 +304,17 @@ export class OrderService extends BaseService<Order> {
 
         await orderRepo.save(order);
         await paymentIntentRepo.save(paymentIntent);
+
+        // Publish an event to RabbitMQ for other services to consume
+        const routingKey = `payment.completed.${order.createdBy?.toLowerCase()}`;
+        await this.rabbitMQPublisher.publish(routingKey, {
+          orderId: order.id,
+          paymentId: payment.id,
+          amount: payload.data.amount.value,
+          currency: payload.data.amount.currency,
+          provider: PaymentProvider.SNIPPE,
+          providerTransactionId: payload.data.reference,
+        });
       })
       .catch((error) => {
         this.logger.error(
