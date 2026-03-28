@@ -308,12 +308,10 @@ export class OrderService extends BaseService<Order> {
         // Publish an event to RabbitMQ for other services to consume
         const routingKey = `payment.completed.${order.createdBy?.toLowerCase()}`;
         await this.rabbitMQPublisher.publish(routingKey, {
-          orderId: order.id,
-          paymentId: payment.id,
-          amount: payload.data.amount.value,
-          currency: payload.data.amount.currency,
-          provider: PaymentProvider.SNIPPE,
-          providerTransactionId: payload.data.reference,
+          orderReference: order.reference,
+          clientReference: order.clientReference,
+          status: order.status,
+          transactionReference: payload.data.reference,
         });
       })
       .catch((error) => {

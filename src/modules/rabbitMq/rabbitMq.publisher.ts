@@ -15,9 +15,19 @@ export class RabbitMQPublisher {
       `Publishing message to exchange "${exchange}" with routing key "${routingKey}"`,
     );
 
-    channel.publish(exchange, routingKey, Buffer.from(JSON.stringify(data)), {
-      persistent: true,
-    });
+    const nestFormatPayload = {
+      data,
+      pattern: routingKey,
+    };
+
+    channel.publish(
+      exchange,
+      routingKey,
+      Buffer.from(JSON.stringify(nestFormatPayload)),
+      {
+        persistent: true,
+      },
+    );
 
     this.logger.log('Message published to RabbitMQ');
   }
